@@ -2,15 +2,200 @@ package main
 
 import (
 	"fmt"
-	"math"
 	"math/rand"
 	"runtime"
+	"time"
 )
 
-func main() {
-	var f func() int = functions(math.Atan2)
-	fmt.Println(f())
+//
+// Concurrency
+//
+
+// goroutines - a thread
+func hello() {
+	time.Sleep(time.Second)
+	fmt.Println("hello")
 }
+
+func threads() {
+	go hello()
+	fmt.Println("hi")
+	hello()
+}
+
+// send and receive values through channels w/ channel operator <-
+func multiply(s []int, c chan int) {
+	sum := 0
+	for _, v := range s {
+		sum += v
+	}
+	c <- sum
+}
+
+func count(c chan int) {
+	for i := 1; i < 11; i++ {
+		c <- i
+	}
+}
+
+func channels() {
+	ch := make(chan int)
+
+	go multiply([]int{1, 2, 3}, ch)
+	go multiply([]int{4, 5, 6}, ch)
+	x, y := <-ch, <-ch
+
+	fmt.Println(x, y)
+
+	go count(ch)
+	for i := 0; i < 10; i++ {
+		fmt.Print(<-ch, " ")
+	}
+}
+
+func lottery(c chan int) {
+	for i := 0; i < 10; i++ {
+		c <- rand.Int()
+	}
+	close(c)
+}
+
+func closeChannels() {
+	ch := make(chan int)
+	go lottery(ch)
+	for i := range ch {
+		fmt.Println(i)
+	}
+}
+
+func oneUntilQuit(c chan int) {
+	for {
+		fmt.Println(2)
+		select {
+		case <-c:
+			return
+			// default:
+			// 	time.Sleep(time.Millisecond * 500)
+			// 	fmt.Println(1)
+		}
+		fmt.Println(3)
+	}
+}
+
+func requestOne() {
+	quit := make(chan int)
+	go oneUntilQuit(quit)
+	time.Sleep(time.Second * 2)
+	quit <- 0
+	fmt.Println("ones done")
+	time.Sleep(time.Second)
+}
+
+func main() {
+	requestOne()
+}
+
+//
+// Interfaces
+//
+
+// an interface type is a set of method signatures
+type Phone interface {
+	Call(string) string
+	Throw()
+}
+
+type iPhone struct {
+	broken bool
+}
+
+func (p *iPhone) Call(s string) string {
+	if s == "George Costanza" && !p.broken {
+		return "Believe it or not, George isn't at home."
+	}
+	return "Error"
+}
+
+func (p *iPhone) Throw() {
+	p.broken = true
+}
+
+// type assertion (access interface type)
+func typeAssertion() {
+	var i interface{} = 1
+	fmt.Println(i)
+	j := i.(int)
+	fmt.Println(j)
+	j = 2
+	fmt.Println(i)
+}
+
+// type switch
+func typeSwitch(i interface{}) string {
+	switch i.(type) {
+	case int:
+		return "is int"
+	case complex128:
+		return "is big complex"
+	case complex64:
+		return "is small complex"
+	default:
+		return "idk"
+	}
+}
+
+//
+// Methods
+//
+
+// no classes in go, functions instead defined as methods with a receiver argument
+// it works while the receiver type is in the same package
+func (t Triangle) Perimeter() int {
+	return t.l1 + t.l2 + t.l3
+}
+
+// this is equivalent to
+func Perimeter(t Triangle) int {
+	return t.l1 + t.l2 + t.l3
+}
+
+// and can be any type
+type X int
+
+func (x X) Square() X {
+	return x * x
+}
+
+// the following two functions receive a copy of t, not t itself. Changing the sides doesn't change og t
+func badScale1(t Triangle) {
+	t.l1 = t.l1 * 10
+	t.l2 = t.l2 * 10
+	t.l3 = t.l3 * 10
+}
+
+func (t Triangle) badScale2() {
+	t.l1 = t.l1 * 10
+	t.l2 = t.l2 * 10
+	t.l3 = t.l3 * 10
+}
+
+// to change original t, have to give the function a pointer
+func goodScale1(t *Triangle) {
+	t.l1 = t.l1 * 10
+	t.l2 = t.l2 * 10
+	t.l3 = t.l3 * 10
+}
+
+// t.goodScale2() equivalent to (&t).goodScale2()
+func (t *Triangle) goodScale2() {
+	t.l1 = t.l1 * 10
+	t.l2 = t.l2 * 10
+	t.l3 = t.l3 * 10
+}
+
+//
+// Basics
+//
 
 func functions(fn func(float64, float64) float64) func() int {
 	fmt.Println(fn(5, 2))
